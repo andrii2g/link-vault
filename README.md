@@ -1,13 +1,34 @@
-# link-vault
+# Link Vault
 
-Minimal tool to save URLs and close tabs.
+Local-first URL capture for Chrome. The extension sends links to a .NET 10 API running at `http://localhost:5678`.
 
-## Usage
+## Setup
 
-* Run local API (`http://localhost:5000`)
-* Load Chrome extension (`chrome://extensions` → Load unpacked)
-* Save links in one click
+1. Open `chrome://extensions`.
+2. Turn on **Developer mode**.
+3. Click **Load unpacked** and select `path-to\link-vault\extension`.
+4. Copy the extension ID shown on the `Link Vault` card.
+5. Start the API.
 
-## Goal
+Preferred: set the extension origin in `src/LinkVault.Api/appsettings.json` under `LinkVault:AllowedExtensionOrigins`.
+Fallback: set `LINK_VAULT_ALLOWED_EXTENSION_ORIGINS` as an environment variable.
 
-Stop keeping tabs open — save and close instead.
+```powershell
+dotnet run --project .\src\LinkVault.Api\LinkVault.Api.csproj
+```
+
+6. Check health:
+
+```powershell
+Invoke-WebRequest http://localhost:5678/health | Select-Object -ExpandProperty Content
+```
+
+7. Use the extension popup to `Save`, `Save & Close`, or `Save All Tabs`.
+
+## Notes
+
+- Default storage path: `%LOCALAPPDATA%\LinkVault\links.json`
+- Preferred config key: `LinkVault:DataPath`
+- Fallback env var: `LINK_VAULT_DATA_PATH`
+- If the extension ID changes after reload/reinstall, update `LinkVault:AllowedExtensionOrigins` or `LINK_VAULT_ALLOWED_EXTENSION_ORIGINS`.
+- If the ID is wrong, Chrome blocks the request with CORS.

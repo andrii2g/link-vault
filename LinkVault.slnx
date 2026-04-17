@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LinkVault.Api/LinkVault.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LinkVault.Api.Tests/LinkVault.Api.Tests.csproj" />
+  </Folder>
+</Solution>

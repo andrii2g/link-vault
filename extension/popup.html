@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Link Vault</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main class="panel">
+    <header>
+      <p class="eyebrow">Link Vault</p>
+      <h1>Save tabs without keeping them open.</h1>
+    </header>
+
+    <section class="actions">
+      <button id="save-button" type="button">Save</button>
+      <button id="save-close-button" type="button">Save &amp; Close</button>
+      <button id="save-all-button" type="button">Save All Tabs</button>
+    </section>
+
+    <p id="status" class="status" aria-live="polite"></p>
+    <ul id="results" class="results"></ul>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

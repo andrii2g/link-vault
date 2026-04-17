@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Link Vault",
+  "version": "1.0.0",
+  "description": "Save links to a local Link Vault API and close tabs when appropriate.",
+  "permissions": [
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://localhost:5678/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Link Vault",
+    "default_popup": "popup.html"
+  }
+}

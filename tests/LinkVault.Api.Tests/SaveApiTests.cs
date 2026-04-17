@@ -3,6 +3,7 @@ using LinkVault.Api.Models;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace LinkVault.Api.Tests;
 
@@ -147,6 +148,20 @@ public sealed class SaveApiTests : IDisposable
         var item = Assert.Single(await ReadItemsAsync(cancellationToken));
         Assert.NotNull(item.UpdatedAt);
         Assert.True(item.UpdatedAt > item.CreatedAt);
+    }
+
+    [Fact]
+    public async Task PostAndPatchLinks_WriteTimestampsWithIdenticalPrecision()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        await _client.PostAsJsonAsync("/links", new SaveLinkRequest { Url = "https://example.com/precision" }, cancellationToken);
+        await _client.PatchAsJsonAsync("/links", new TouchLinkRequest { Url = "https://example.com/precision" }, cancellationToken);
+
+        var json = await File.ReadAllTextAsync(_dataPath, cancellationToken);
+
+        Assert.Matches(new Regex("\"createdAt\":\\s*\"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z\""), json);
+        Assert.Matches(new Regex("\"updatedAt\":\\s*\"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z\""), json);
     }
 
     [Fact]

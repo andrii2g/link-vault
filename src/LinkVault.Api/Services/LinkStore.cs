@@ -1,6 +1,7 @@
 using LinkVault.Api.Contracts;
 using LinkVault.Api.Models;
 using LinkVault.Api.Options;
+using LinkVault.Api.Serialization;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
 
@@ -22,10 +23,7 @@ public enum TouchResult
 
 public sealed class LinkStore
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        WriteIndented = true
-    };
+    private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
 
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly ILogger<LinkStore> _logger;
@@ -339,6 +337,17 @@ public sealed class LinkStore
         catch
         {
         }
+    }
+
+    private static JsonSerializerOptions CreateJsonOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            WriteIndented = true
+        };
+
+        UtcDateTimeOffsetJsonConverters.Apply(options);
+        return options;
     }
 
     private readonly record struct StorageReadResult(bool Success, List<UrlItem>? Items)

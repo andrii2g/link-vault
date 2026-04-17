@@ -1,5 +1,6 @@
 using LinkVault.Api.Contracts;
 using LinkVault.Api.Options;
+using LinkVault.Api.Serialization;
 using LinkVault.Api.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 using System.Text;
@@ -24,6 +25,7 @@ builder.Services.Configure<LinkVaultOptions>(options =>
     options.DataPath = LinkVaultConfiguration.GetDataPath(builder.Configuration);
     options.AllowedExtensionOrigins = allowedOrigins;
 });
+builder.Services.ConfigureHttpJsonOptions(options => UtcDateTimeOffsetJsonConverters.Apply(options.SerializerOptions));
 
 builder.Services.AddSingleton<LinkStore>();
 builder.Services.AddCors(options =>

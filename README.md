@@ -29,6 +29,8 @@ Invoke-WebRequest http://localhost:5678/health | Select-Object -ExpandProperty C
 - `Save All Tabs` (saves sequentially and does not close tabs)
 - `View Links` (opens the read-only links page)
 
+8. You can also right-click any hyperlink and choose `Save link to Vault` to save the target URL directly without opening it in a tab.
+
 ## Notes
 
 - Default storage path: `%LOCALAPPDATA%\LinkVault\links.json`

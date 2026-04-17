@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "description": "Save links to a local Link Vault API and close tabs when appropriate.",
   "permissions": [
-    "tabs"
+    "tabs",
+    "contextMenus",
+    "notifications"
   ],
   "host_permissions": [
     "http://localhost:5678/*"

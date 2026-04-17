@@ -2,6 +2,39 @@ const API_BASE_URL = "http://localhost:5678";
 const SAVE_TIMEOUT_MS = 4000;
 const SUCCESS_CLOSE_OUTCOMES = new Set(["saved", "duplicate"]);
 const KNOWN_OUTCOMES = new Set(["saved", "duplicate", "invalid"]);
+const CONTEXT_MENU_ID = "save-link-to-vault";
+const NOTIFICATION_ICON = "icons/icon-128.png";
+const NOTIFICATION_MESSAGES = {
+  saved: "Link saved to Vault",
+  duplicate: "Link already exists in Vault",
+  invalid: "Link is not a valid web URL",
+  failed: "Failed to save link to Vault"
+};
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_ID,
+      title: "Save link to Vault",
+      contexts: ["link"]
+    }, () => {
+      if (chrome.runtime.lastError) {
+        console.error("Failed to create Link Vault context menu", chrome.runtime.lastError.message);
+      }
+    });
+  });
+});
+
+chrome.contextMenus.onClicked.addListener((info) => {
+  if (info.menuItemId !== CONTEXT_MENU_ID) {
+    return;
+  }
+
+  handleContextMenuClick(info).catch((error) => {
+    console.error("Context menu save failed", error);
+    void showOutcomeNotification("failed");
+  });
+});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type !== "link-vault-action") {
@@ -43,6 +76,11 @@ async function handleAction(message) {
   return { action: message.action, results };
 }
 
+async function handleContextMenuClick(info) {
+  const outcome = await saveLinkUrl(info.linkUrl);
+  await showOutcomeNotification(outcome);
+}
+
 async function resolveTabs(action) {
   if (action === "save-all") {
     return chrome.tabs.query({ currentWindow: true });
@@ -53,33 +91,21 @@ async function resolveTabs(action) {
 }
 
 async function saveTab(tab, closeOnSuccess) {
-  const payload = {
+  const outcome = await saveLinkPayload({
     url: tab.url ?? "",
     title: tab.title ?? null,
     description: null,
     tags: []
-  };
-
-  let result;
-  try {
-    result = await postSave(payload);
-  } catch (error) {
-    return {
-      outcome: "failed",
-      url: payload.url,
-      title: payload.title,
-      detail: error instanceof Error ? error.message : String(error)
-    };
-  }
+  });
 
   const response = {
-    outcome: result.status,
-    url: payload.url,
-    title: payload.title,
-    detail: result.message
+    outcome: outcome.status,
+    url: tab.url ?? "",
+    title: tab.title ?? null,
+    detail: outcome.message
   };
 
-  if (closeOnSuccess && SUCCESS_CLOSE_OUTCOMES.has(result.status) && typeof tab.id === "number") {
+  if (closeOnSuccess && SUCCESS_CLOSE_OUTCOMES.has(outcome.status) && typeof tab.id === "number") {
     try {
       await chrome.tabs.remove(tab.id);
     } catch (error) {
@@ -88,6 +114,46 @@ async function saveTab(tab, closeOnSuccess) {
   }
 
   return response;
+}
+
+async function saveLinkUrl(linkUrl) {
+  return (await saveLinkPayload({
+    url: linkUrl ?? "",
+    title: null,
+    description: null,
+    tags: []
+  })).status;
+}
+
+async function saveLinkPayload(payload) {
+  if (!isSupportedHttpUrl(payload.url)) {
+    return {
+      status: "invalid",
+      message: NOTIFICATION_MESSAGES.invalid
+    };
+  }
+
+  try {
+    return await postSave(payload);
+  } catch (error) {
+    return {
+      status: "failed",
+      message: error instanceof Error ? error.message : NOTIFICATION_MESSAGES.failed
+    };
+  }
+}
+
+function isSupportedHttpUrl(url) {
+  if (!url || typeof url !== "string") {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 async function postSave(payload) {
@@ -123,4 +189,15 @@ async function postSave(payload) {
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+async function showOutcomeNotification(outcome) {
+  const message = NOTIFICATION_MESSAGES[outcome] ?? NOTIFICATION_MESSAGES.failed;
+
+  await chrome.notifications.create({
+    type: "basic",
+    iconUrl: NOTIFICATION_ICON,
+    title: "Link Vault",
+    message
+  });
 }

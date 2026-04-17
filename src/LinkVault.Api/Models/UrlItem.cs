@@ -6,4 +6,5 @@ public sealed record UrlItem(
     string? Title,
     string? Description,
     string[] Tags,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? UpdatedAt);

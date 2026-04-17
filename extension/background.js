@@ -3,7 +3,7 @@ const SAVE_TIMEOUT_MS = 4000;
 const SUCCESS_CLOSE_OUTCOMES = new Set(["saved", "duplicate"]);
 const KNOWN_OUTCOMES = new Set(["saved", "duplicate", "invalid"]);
 const CONTEXT_MENU_ID = "save-link-to-vault";
-const NOTIFICATION_ICON = "icons/icon-128.png";
+const NOTIFICATION_ICON = chrome.runtime.getURL("icons/icon-128.png");
 const NOTIFICATION_MESSAGES = {
   saved: "Link saved to Vault",
   duplicate: "Link already exists in Vault",
@@ -23,6 +23,14 @@ chrome.runtime.onInstalled.addListener(() => {
       }
     });
   });
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status !== "complete") {
+    return;
+  }
+
+  void touchLinkUrl(tab.url);
 });
 
 chrome.contextMenus.onClicked.addListener((info) => {
@@ -134,12 +142,23 @@ async function saveLinkPayload(payload) {
   }
 
   try {
-    return await postSave(payload);
+    return await postJson("POST", `${API_BASE_URL}/links`, payload, true);
   } catch (error) {
     return {
       status: "failed",
       message: error instanceof Error ? error.message : NOTIFICATION_MESSAGES.failed
     };
+  }
+}
+
+async function touchLinkUrl(linkUrl) {
+  if (!isSupportedHttpUrl(linkUrl)) {
+    return;
+  }
+
+  try {
+    await postJson("PATCH", `${API_BASE_URL}/links`, { url: linkUrl }, false);
+  } catch {
   }
 }
 
@@ -156,13 +175,13 @@ function isSupportedHttpUrl(url) {
   }
 }
 
-async function postSave(payload) {
+async function postJson(method, url, payload, strictBusinessContract) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), SAVE_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${API_BASE_URL}/save`, {
-      method: "POST",
+    const response = await fetch(url, {
+      method,
       headers: {
         "Content-Type": "application/json"
       },
@@ -175,7 +194,11 @@ async function postSave(payload) {
     }
 
     const body = await response.json();
-    if (!body || !KNOWN_OUTCOMES.has(body.status) || typeof body.message !== "string") {
+    if (!body || typeof body.status !== "string") {
+      throw new Error("API returned an invalid JSON contract.");
+    }
+
+    if (strictBusinessContract && !KNOWN_OUTCOMES.has(body.status)) {
       throw new Error("API returned an invalid JSON contract.");
     }
 

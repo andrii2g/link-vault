@@ -1,8 +1,8 @@
-using System.Text.Json;
 using LinkVault.Api.Contracts;
 using LinkVault.Api.Models;
 using LinkVault.Api.Options;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 
 namespace LinkVault.Api.Services;
 
@@ -10,6 +10,13 @@ public enum SaveResult
 {
     Saved,
     Duplicate,
+    StorageFailure
+}
+
+public enum TouchResult
+{
+    Updated,
+    Ignored,
     StorageFailure
 }
 
@@ -40,7 +47,7 @@ public sealed class LinkStore
         }
 
         startupLogger.LogError(
-            "Link store corruption detected at startup. POST /save will fail until {DataPath} is repaired.",
+            "Link store corruption detected at startup. POST /links and PATCH /links will fail until {DataPath} is repaired.",
             _dataPath);
     }
 
@@ -75,7 +82,8 @@ public sealed class LinkStore
                 request.Title,
                 request.Description,
                 request.Tags,
-                DateTimeOffset.UtcNow));
+                DateTimeOffset.UtcNow,
+                null));
 
             try
             {
@@ -89,6 +97,48 @@ public sealed class LinkStore
 
             _logger.LogInformation("Saved link: {Url}", request.Url);
             return SaveResult.Saved;
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    public async Task<TouchResult> TouchAsync(string url, CancellationToken cancellationToken)
+    {
+        await _writeLock.WaitAsync(cancellationToken);
+        try
+        {
+            await EnsureInitializedAsync(cancellationToken);
+            var readResult = await TryReadItemsAsync(cancellationToken);
+            if (!readResult.Success)
+            {
+                _logger.LogError("Failed to touch URL '{Url}' because the link store at {DataPath} is corrupted or unreadable.", url, _dataPath);
+                return TouchResult.StorageFailure;
+            }
+
+            var items = readResult.Items!;
+            var normalizedKey = NormalizeForDeduplication(url);
+            var index = items.FindIndex(item => NormalizeForDeduplication(item.Url) == normalizedKey);
+            if (index < 0)
+            {
+                return TouchResult.Ignored;
+            }
+
+            var existing = items[index];
+            items[index] = existing with { UpdatedAt = DateTimeOffset.UtcNow };
+
+            try
+            {
+                await WriteAtomicallyAsync(items, cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Atomic write failed for link touch in store {DataPath}", _dataPath);
+                return TouchResult.StorageFailure;
+            }
+
+            return TouchResult.Updated;
         }
         finally
         {

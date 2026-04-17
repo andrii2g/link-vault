@@ -32,7 +32,7 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
-            .WithMethods("GET", "POST");
+            .WithMethods("GET", "POST", "PATCH");
     });
 });
 
@@ -59,7 +59,7 @@ app.MapGet("/links", async Task<Results<ContentHttpResult, ProblemHttpResult>>(L
     return TypedResults.Content(LinkVaultPageRenderer.Render(result.Items), "text/html");
 });
 
-app.MapPost("/save", async Task<Results<JsonHttpResult<SaveLinkResponse>, ProblemHttpResult>> (
+app.MapPost("/links", async Task<Results<JsonHttpResult<SaveLinkResponse>, ProblemHttpResult>> (
     SaveLinkRequest request,
     LinkStore store,
     ILoggerFactory loggerFactory,
@@ -89,6 +89,32 @@ app.MapPost("/save", async Task<Results<JsonHttpResult<SaveLinkResponse>, Proble
     };
 });
 
+app.MapPatch("/links", async Task<Results<JsonHttpResult<TouchLinkResponse>, ProblemHttpResult>> (
+    TouchLinkRequest request,
+    LinkStore store,
+    CancellationToken cancellationToken) =>
+{
+    if (!TouchLinkRequest.TryNormalize(request, out var normalizedUrl))
+    {
+        return TypedResults.Json(TouchLinkResponse.Invalid());
+    }
+
+    var result = await store.TouchAsync(normalizedUrl, cancellationToken);
+    return result switch
+    {
+        TouchResult.Updated => TypedResults.Json(TouchLinkResponse.Updated()),
+        TouchResult.Ignored => TypedResults.Json(TouchLinkResponse.Ignored()),
+        TouchResult.StorageFailure => TypedResults.Problem(
+            statusCode: StatusCodes.Status500InternalServerError,
+            title: "Storage failure",
+            detail: "The link store is unavailable. Check the API logs for details."),
+        _ => TypedResults.Problem(
+            statusCode: StatusCodes.Status500InternalServerError,
+            title: "Unexpected failure",
+            detail: "The API failed to process the request.")
+    };
+});
+
 app.Run();
 
 public partial class Program;
@@ -106,6 +132,13 @@ internal static class LinkVaultPageRenderer
             markup.Append("<div class=\"meta\">Saved ");
             markup.Append(encoder.Encode(item.CreatedAt.ToString("u")));
             markup.Append("</div>");
+
+            if (item.UpdatedAt is not null)
+            {
+                markup.Append("<div class=\"meta\">Opened ");
+                markup.Append(encoder.Encode(item.UpdatedAt.Value.ToString("u")));
+                markup.Append("</div>");
+            }
 
             if (!string.IsNullOrWhiteSpace(item.Title))
             {

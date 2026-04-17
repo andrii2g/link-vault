@@ -1,9 +1,8 @@
+using LinkVault.Api.Contracts;
+using LinkVault.Api.Models;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using LinkVault.Api.Contracts;
-using LinkVault.Api.Models;
-using Xunit;
 
 namespace LinkVault.Api.Tests;
 
@@ -34,16 +33,16 @@ public sealed class SaveApiTests : IDisposable
     }
 
     [Fact]
-    public async Task Save_WritesNewItemWithServerGeneratedFields()
+    public async Task PostLinks_WritesNewItemWithServerGeneratedFields()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
 
-        var response = await _client.PostAsJsonAsync("/save", new SaveLinkRequest
+        var response = await _client.PostAsJsonAsync("/links", new SaveLinkRequest
         {
             Url = " https://example.com/path ",
             Title = " Example ",
             Description = " Desc ",
-            Tags = [" one ", "", " two "]
+            Tags = [" one ", "", " two " ]
         }, cancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -59,23 +58,18 @@ public sealed class SaveApiTests : IDisposable
         Assert.Equal("Desc", item.Description);
         Assert.Equal(["one", "two"], item.Tags);
         Assert.True(item.CreatedAt > DateTimeOffset.UtcNow.AddMinutes(-1));
+        Assert.Null(item.UpdatedAt);
     }
 
     [Fact]
-    public async Task Save_DetectsDuplicatesWithoutNormalizingDefaultPorts()
+    public async Task PostLinks_DetectsDuplicatesWithoutNormalizingDefaultPorts()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
 
-        await _client.PostAsJsonAsync("/save", new SaveLinkRequest { Url = "https://EXAMPLE.com/demo" }, cancellationToken);
+        await _client.PostAsJsonAsync("/links", new SaveLinkRequest { Url = "https://EXAMPLE.com/demo" }, cancellationToken);
 
-        var duplicateResponse = await _client.PostAsJsonAsync(
-            "/save",
-            new SaveLinkRequest { Url = "https://example.com/demo" },
-            cancellationToken);
-        var distinctResponse = await _client.PostAsJsonAsync(
-            "/save",
-            new SaveLinkRequest { Url = "https://example.com:443/demo" },
-            cancellationToken);
+        var duplicateResponse = await _client.PostAsJsonAsync("/links", new SaveLinkRequest { Url = "https://example.com/demo" }, cancellationToken);
+        var distinctResponse = await _client.PostAsJsonAsync("/links", new SaveLinkRequest { Url = "https://example.com:443/demo" }, cancellationToken);
 
         Assert.Equal("duplicate", (await duplicateResponse.Content.ReadFromJsonAsync<SaveLinkResponse>(cancellationToken))?.Status);
         Assert.Equal("saved", (await distinctResponse.Content.ReadFromJsonAsync<SaveLinkResponse>(cancellationToken))?.Status);
@@ -85,11 +79,11 @@ public sealed class SaveApiTests : IDisposable
     }
 
     [Fact]
-    public async Task Save_ReturnsInvalidForNonHttpUrls()
+    public async Task PostLinks_ReturnsInvalidForNonHttpUrls()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
 
-        var response = await _client.PostAsJsonAsync("/save", new SaveLinkRequest { Url = "chrome://settings" }, cancellationToken);
+        var response = await _client.PostAsJsonAsync("/links", new SaveLinkRequest { Url = "chrome://settings" }, cancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<SaveLinkResponse>(cancellationToken);
@@ -99,7 +93,7 @@ public sealed class SaveApiTests : IDisposable
     }
 
     [Fact]
-    public async Task Save_IgnoresClientControlledFields()
+    public async Task PostLinks_IgnoresClientControlledFields()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -107,28 +101,27 @@ public sealed class SaveApiTests : IDisposable
         {
             url = "https://example.com/with-client-fields",
             id = Guid.Empty,
-            createdAt = "2000-01-01T00:00:00Z"
+            createdAt = "2000-01-01T00:00:00Z",
+            updatedAt = "2000-01-01T00:00:00Z"
         };
 
-        var response = await _client.PostAsJsonAsync("/save", payload, cancellationToken);
+        var response = await _client.PostAsJsonAsync("/links", payload, cancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var items = await ReadItemsAsync(cancellationToken);
         var item = Assert.Single(items);
         Assert.NotEqual(Guid.Empty, item.Id);
         Assert.NotEqual(DateTimeOffset.Parse("2000-01-01T00:00:00Z"), item.CreatedAt);
+        Assert.Null(item.UpdatedAt);
     }
 
     [Fact]
-    public async Task Save_SerializesConcurrentWritesWithoutCorruptingJson()
+    public async Task PostLinks_SerializesConcurrentWritesWithoutCorruptingJson()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
 
         var tasks = Enumerable.Range(0, 12)
-            .Select(index => _client.PostAsJsonAsync(
-                "/save",
-                new SaveLinkRequest { Url = $"https://example.com/{index}" },
-                cancellationToken))
+            .Select(index => _client.PostAsJsonAsync("/links", new SaveLinkRequest { Url = $"https://example.com/{index}" }, cancellationToken))
             .ToArray();
 
         await Task.WhenAll(tasks).WaitAsync(cancellationToken);
@@ -139,11 +132,43 @@ public sealed class SaveApiTests : IDisposable
     }
 
     [Fact]
+    public async Task PatchLinks_UpdatesUpdatedAtWhenUrlExists()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await _client.PostAsJsonAsync("/links", new SaveLinkRequest { Url = "https://example.com/touched" }, cancellationToken);
+
+        var response = await _client.PatchAsJsonAsync("/links", new TouchLinkRequest { Url = "https://example.com/touched" }, cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<TouchLinkResponse>(cancellationToken);
+        Assert.NotNull(body);
+        Assert.Equal("updated", body.Status);
+
+        var item = Assert.Single(await ReadItemsAsync(cancellationToken));
+        Assert.NotNull(item.UpdatedAt);
+        Assert.True(item.UpdatedAt > item.CreatedAt);
+    }
+
+    [Fact]
+    public async Task PatchLinks_IgnoresUnknownUrl()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var response = await _client.PatchAsJsonAsync("/links", new TouchLinkRequest { Url = "https://example.com/missing" }, cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<TouchLinkResponse>(cancellationToken);
+        Assert.NotNull(body);
+        Assert.Equal("ignored", body.Status);
+        Assert.Empty(await ReadItemsAsync(cancellationToken));
+    }
+
+    [Fact]
     public async Task LinksPage_RendersSavedItems()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
 
-        await _client.PostAsJsonAsync("/save", new SaveLinkRequest
+        await _client.PostAsJsonAsync("/links", new SaveLinkRequest
         {
             Url = "https://example.com/alpha",
             Title = "Alpha",
@@ -164,13 +189,13 @@ public sealed class SaveApiTests : IDisposable
     }
 
     [Fact]
-    public async Task Save_ReturnsServerErrorWhenStorageIsCorrupted()
+    public async Task PostLinks_ReturnsServerErrorWhenStorageIsCorrupted()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
 
         await File.WriteAllTextAsync(_dataPath, "{ not valid json", cancellationToken);
 
-        var response = await _client.PostAsJsonAsync("/save", new SaveLinkRequest { Url = "https://example.com" }, cancellationToken);
+        var response = await _client.PostAsJsonAsync("/links", new SaveLinkRequest { Url = "https://example.com" }, cancellationToken);
 
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
         var storedText = await File.ReadAllTextAsync(_dataPath, cancellationToken);
@@ -205,11 +230,13 @@ public sealed class SaveApiTests : IDisposable
 
     private async Task<List<UrlItem>> ReadItemsAsync(CancellationToken cancellationToken)
     {
+        if (!File.Exists(_dataPath))
+        {
+            return [];
+        }
+
         await using var stream = File.OpenRead(_dataPath);
-        var items = await JsonSerializer.DeserializeAsync<List<UrlItem>>(
-            stream,
-            new JsonSerializerOptions(JsonSerializerDefaults.Web),
-            cancellationToken);
+        var items = await JsonSerializer.DeserializeAsync<List<UrlItem>>(stream, new JsonSerializerOptions(JsonSerializerDefaults.Web), cancellationToken);
         return Assert.IsType<List<UrlItem>>(items);
     }
 }

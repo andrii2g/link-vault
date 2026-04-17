@@ -35,6 +35,8 @@ Invoke-WebRequest http://localhost:5678/health | Select-Object -ExpandProperty C
 
 - Default storage path: `%LOCALAPPDATA%\LinkVault\links.json`
 - Read-only browser view: `http://localhost:5678/links`
+- Links are created with `POST /links`.
+- Opened pages can update `updatedAt` through `PATCH /links` by URL.
 - Preferred config key: `LinkVault:DataPath`
 - Fallback env var: `LINK_VAULT_DATA_PATH`
 - If the extension ID changes after reload/reinstall, update `LinkVault:AllowedExtensionOrigins` or `LINK_VAULT_ALLOWED_EXTENSION_ORIGINS`.

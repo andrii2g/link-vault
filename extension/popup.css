@@ -51,6 +51,12 @@ button {
   border-radius: 10px;
 }
 
+button.secondary {
+  background: linear-gradient(180deg, #fff8eb 0%, #eadcc2 100%);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
 button:disabled {
   opacity: 0.6;
   cursor: wait;

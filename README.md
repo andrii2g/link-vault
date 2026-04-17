@@ -23,11 +23,16 @@ dotnet run --project .\src\LinkVault.Api\LinkVault.Api.csproj
 Invoke-WebRequest http://localhost:5678/health | Select-Object -ExpandProperty Content
 ```
 
-7. Use the extension popup to `Save`, `Save & Close`, or `Save All Tabs`.
+7. Use the extension popup:
+- `Save`
+- `Save & Close`
+- `Save All Tabs` (saves sequentially and does not close tabs)
+- `View Links` (opens the read-only links page)
 
 ## Notes
 
 - Default storage path: `%LOCALAPPDATA%\LinkVault\links.json`
+- Read-only browser view: `http://localhost:5678/links`
 - Preferred config key: `LinkVault:DataPath`
 - Fallback env var: `LINK_VAULT_DATA_PATH`
 - If the extension ID changes after reload/reinstall, update `LinkVault:AllowedExtensionOrigins` or `LINK_VAULT_ALLOWED_EXTENSION_ORIGINS`.

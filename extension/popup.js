@@ -1,7 +1,8 @@
 const buttons = {
   save: document.getElementById("save-button"),
   saveAndClose: document.getElementById("save-close-button"),
-  saveAll: document.getElementById("save-all-button")
+  saveAll: document.getElementById("save-all-button"),
+  viewLinks: document.getElementById("view-links-button")
 };
 const statusNode = document.getElementById("status");
 const resultsNode = document.getElementById("results");
@@ -9,6 +10,7 @@ const resultsNode = document.getElementById("results");
 buttons.save.addEventListener("click", () => runAction("save"));
 buttons.saveAndClose.addEventListener("click", () => runAction("save-and-close"));
 buttons.saveAll.addEventListener("click", () => runAction("save-all"));
+buttons.viewLinks.addEventListener("click", openLinksView);
 
 async function runAction(action) {
   setBusy(true);
@@ -19,6 +21,21 @@ async function runAction(action) {
     const response = await chrome.runtime.sendMessage({ type: "link-vault-action", action });
     renderResults(response?.results ?? []);
     statusNode.textContent = summarize(response?.results ?? []);
+  } catch (error) {
+    statusNode.textContent = error instanceof Error ? error.message : String(error);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function openLinksView() {
+  setBusy(true);
+  statusNode.textContent = "Opening links...";
+  resultsNode.replaceChildren();
+
+  try {
+    await chrome.runtime.sendMessage({ type: "link-vault-action", action: "view-links" });
+    statusNode.textContent = "Opened links view.";
   } catch (error) {
     statusNode.textContent = error instanceof Error ? error.message : String(error);
   } finally {

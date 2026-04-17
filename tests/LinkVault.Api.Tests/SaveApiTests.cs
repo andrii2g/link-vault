@@ -139,6 +139,31 @@ public sealed class SaveApiTests : IDisposable
     }
 
     [Fact]
+    public async Task LinksPage_RendersSavedItems()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        await _client.PostAsJsonAsync("/save", new SaveLinkRequest
+        {
+            Url = "https://example.com/alpha",
+            Title = "Alpha",
+            Description = "First link",
+            Tags = ["one", "two"]
+        }, cancellationToken);
+
+        var response = await _client.GetAsync("/links", cancellationToken);
+        var html = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("Saved links", html);
+        Assert.Contains("Alpha", html);
+        Assert.Contains("https://example.com/alpha", html);
+        Assert.Contains("First link", html);
+        Assert.Contains("one", html);
+    }
+
+    [Fact]
     public async Task Save_ReturnsServerErrorWhenStorageIsCorrupted()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

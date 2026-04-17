@@ -26,11 +26,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function handleAction(message) {
+  if (message.action === "view-links") {
+    await chrome.tabs.create({ url: `${API_BASE_URL}/links` });
+    return { action: message.action, results: [] };
+  }
+
   const tabs = await resolveTabs(message.action);
   const results = [];
 
   for (const tab of tabs) {
-    const shouldClose = message.action === "save-and-close" || message.action === "save-all";
+    const shouldClose = message.action === "save-and-close";
     const result = await saveTab(tab, shouldClose);
     results.push(result);
   }

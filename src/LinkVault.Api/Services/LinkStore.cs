@@ -96,6 +96,23 @@ public sealed class LinkStore
         }
     }
 
+    public async Task<LinkReadResult> GetAllAsync(CancellationToken cancellationToken)
+    {
+        await _writeLock.WaitAsync(cancellationToken);
+        try
+        {
+            await EnsureInitializedAsync(cancellationToken);
+            var readResult = await TryReadItemsAsync(cancellationToken);
+            return readResult.Success
+                ? new LinkReadResult(true, readResult.Items!.AsReadOnly())
+                : LinkReadResult.Failure;
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
     private async Task EnsureInitializedAsync(CancellationToken cancellationToken)
     {
         var directory = Path.GetDirectoryName(_dataPath);
@@ -277,6 +294,11 @@ public sealed class LinkStore
     private readonly record struct StorageReadResult(bool Success, List<UrlItem>? Items)
     {
         public static StorageReadResult Failure => new(false, null);
+    }
+
+    public readonly record struct LinkReadResult(bool Success, IReadOnlyList<UrlItem> Items)
+    {
+        public static LinkReadResult Failure => new(false, []);
     }
 
     private enum StorageStatus

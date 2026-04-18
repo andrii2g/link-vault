@@ -10,7 +10,7 @@ Local-first URL capture for Chrome. The extension talks to a .NET 10 API publish
 4. Copy the extension ID shown on the `Link Vault` card.
 5. Create a `.env` file in the repo root with:
 
-```powershell
+```bash
 LINK_VAULT_ALLOWED_EXTENSION_ORIGINS=chrome-extension://<EXTENSION_ID>
 ```
 
@@ -18,13 +18,13 @@ You can start from `.env.example`.
 
 6. Start the API with Docker Compose:
 
-```powershell
+```bash
 docker compose up --build -d
 ```
 
 7. Check health:
 
-```powershell
+```bash
 Invoke-WebRequest http://localhost:5678/health | Select-Object -ExpandProperty Content
 ```
 

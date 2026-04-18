@@ -10,9 +10,7 @@ public static class LinkVaultConfiguration
 
     private static readonly string[] DefaultListenUrls =
     [
-        "http://localhost:5678",
-        "http://127.0.0.1:5678",
-        "http://[::1]:5678"
+        "http://0.0.0.0:5678"
     ];
 
     public static string[] GetValidatedListenUrls(IConfiguration configuration)
@@ -99,17 +97,18 @@ public static class LinkVaultConfiguration
         if (!string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) || uri.Port != 5678)
         {
             throw new InvalidOperationException(
-                $"Link Vault v1 only supports loopback HTTP on port 5678. Invalid URL: '{url}'.");
+                $"Link Vault only supports container HTTP binding on port 5678. Invalid URL: '{url}'.");
         }
 
         var host = uri.Host;
-        var isLoopback = string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
-            (System.Net.IPAddress.TryParse(host, out var ipAddress) && System.Net.IPAddress.IsLoopback(ipAddress));
+        var isContainerBindHost = string.Equals(host, "0.0.0.0", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(host, "[::]", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(host, "::", StringComparison.OrdinalIgnoreCase);
 
-        if (!isLoopback)
+        if (!isContainerBindHost)
         {
             throw new InvalidOperationException(
-                $"Link Vault v1 must bind only to loopback hosts. Invalid URL: '{url}'.");
+                $"Link Vault only supports container bind hosts 0.0.0.0 or [::]. Invalid URL: '{url}'.");
         }
 
         if (!string.IsNullOrEmpty(uri.AbsolutePath) && uri.AbsolutePath != "/")

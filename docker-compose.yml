@@ -1,0 +1,16 @@
+services:
+  link-vault:
+    build:
+      context: .
+      dockerfile: src/LinkVault.Api/Dockerfile
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      ASPNETCORE_URLS: http://0.0.0.0:5678
+      LinkVault__DataPath: /data/links.json
+      LinkVault__AllowedExtensionOrigins: ${LINK_VAULT_ALLOWED_EXTENSION_ORIGINS}
+    volumes:
+      - link-vault-data:/data
+
+volumes:
+  link-vault-data:

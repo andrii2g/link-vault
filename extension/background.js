@@ -1,4 +1,5 @@
-const API_BASE_URL = "http://localhost:5678";
+importScripts("config.js");
+
 const SAVE_TIMEOUT_MS = 4000;
 const SUCCESS_CLOSE_OUTCOMES = new Set(["saved", "duplicate"]);
 const KNOWN_OUTCOMES = new Set(["saved", "duplicate", "invalid"]);
@@ -68,7 +69,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function handleAction(message) {
   if (message.action === "view-links") {
-    await chrome.tabs.create({ url: `${API_BASE_URL}/links` });
+    await chrome.tabs.create({ url: buildApiUrl(LINK_VAULT_EXTENSION_CONFIG.routes.links) });
     return { action: message.action, results: [] };
   }
 
@@ -142,7 +143,7 @@ async function saveLinkPayload(payload) {
   }
 
   try {
-    return await postJson("POST", `${API_BASE_URL}/links`, payload, true);
+    return await postJson("POST", buildApiUrl(LINK_VAULT_EXTENSION_CONFIG.routes.links), payload, true);
   } catch (error) {
     return {
       status: "failed",
@@ -157,9 +158,13 @@ async function touchLinkUrl(linkUrl) {
   }
 
   try {
-    await postJson("PATCH", `${API_BASE_URL}/links`, { url: linkUrl }, false);
+    await postJson("PATCH", buildApiUrl(LINK_VAULT_EXTENSION_CONFIG.routes.links), { url: linkUrl }, false);
   } catch {
   }
+}
+
+function buildApiUrl(path) {
+  return `${LINK_VAULT_EXTENSION_CONFIG.apiOrigin}${path}`;
 }
 
 function isSupportedHttpUrl(url) {

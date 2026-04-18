@@ -30,17 +30,21 @@ async function runAction(action) {
 
 async function openLinksView() {
   setBusy(true);
-  statusNode.textContent = "Opening links...";
+  statusNode.textContent = `Opening ${getLinksViewUrl()}...`;
   resultsNode.replaceChildren();
 
   try {
     await chrome.runtime.sendMessage({ type: "link-vault-action", action: "view-links" });
-    statusNode.textContent = "Opened links view.";
+    statusNode.textContent = `Opened ${getLinksViewUrl()}.`;
   } catch (error) {
     statusNode.textContent = error instanceof Error ? error.message : String(error);
   } finally {
     setBusy(false);
   }
+}
+
+function getLinksViewUrl() {
+  return `${LINK_VAULT_EXTENSION_CONFIG.apiOrigin}${LINK_VAULT_EXTENSION_CONFIG.routes.links}`;
 }
 
 function renderResults(results) {

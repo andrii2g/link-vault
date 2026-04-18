@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2
+
+- Added Docker Compose runtime support.
+- Centralized API route and extension endpoint configuration.
+
 ## 1.1
 
 - Added link deletion in `View Links`.

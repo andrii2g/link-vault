@@ -1,0 +1,13 @@
+.git
+.github
+.vs
+**/bin
+**/obj
+.altbin
+.dotnet
+.nuget
+.tmpbuild
+extension
+tests
+README.md
+CHANGELOG.md

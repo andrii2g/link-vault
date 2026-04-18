@@ -1,3 +1,4 @@
+using LinkVault.Api;
 using LinkVault.Api.Contracts;
 using LinkVault.Api.Options;
 using LinkVault.Api.Serialization;
@@ -45,9 +46,9 @@ app.UseCors("ExtensionOnly");
 await app.Services.GetRequiredService<LinkStore>()
     .LogStartupStorageStatusAsync(app.Logger, app.Lifetime.ApplicationStopping);
 
-app.MapGet("/health", () => Results.Text("OK", "text/plain"));
+app.MapGet(AppRoutes.Health, () => Results.Text("OK", "text/plain"));
 
-app.MapGet("/links", async Task<Results<ContentHttpResult, ProblemHttpResult>>(LinkStore store, CancellationToken cancellationToken) =>
+app.MapGet(AppRoutes.Links, async Task<Results<ContentHttpResult, ProblemHttpResult>>(LinkStore store, CancellationToken cancellationToken) =>
 {
     var result = await store.GetAllAsync(cancellationToken);
     if (!result.Success)
@@ -61,7 +62,7 @@ app.MapGet("/links", async Task<Results<ContentHttpResult, ProblemHttpResult>>(L
     return TypedResults.Content(LinkVaultPageRenderer.Render(result.Items), "text/html");
 });
 
-app.MapPost("/links", async Task<Results<JsonHttpResult<SaveLinkResponse>, ProblemHttpResult>> (
+app.MapPost(AppRoutes.Links, async Task<Results<JsonHttpResult<SaveLinkResponse>, ProblemHttpResult>> (
     SaveLinkRequest request,
     LinkStore store,
     ILoggerFactory loggerFactory,
@@ -91,7 +92,7 @@ app.MapPost("/links", async Task<Results<JsonHttpResult<SaveLinkResponse>, Probl
     };
 });
 
-app.MapPatch("/links", async Task<Results<JsonHttpResult<TouchLinkResponse>, ProblemHttpResult>> (
+app.MapPatch(AppRoutes.Links, async Task<Results<JsonHttpResult<TouchLinkResponse>, ProblemHttpResult>> (
     TouchLinkRequest request,
     LinkStore store,
     CancellationToken cancellationToken) =>
@@ -117,7 +118,7 @@ app.MapPatch("/links", async Task<Results<JsonHttpResult<TouchLinkResponse>, Pro
     };
 });
 
-app.MapDelete("/links", async Task<Results<JsonHttpResult<DeleteLinkResponse>, ProblemHttpResult>> (
+app.MapDelete(AppRoutes.Links, async Task<Results<JsonHttpResult<DeleteLinkResponse>, ProblemHttpResult>> (
     Guid id,
     LinkStore store,
     CancellationToken cancellationToken) =>
@@ -365,12 +366,13 @@ internal static class LinkVaultPageRenderer
   <main>
     <p class="eyebrow">Link Vault</p>
     <h1>Saved links</h1>
-    <p class="subtitle">Local view of the store at %LOCALAPPDATA%\LinkVault\links.json.</p>
+    <p class="subtitle">Local view of the container-backed store at /data/links.json.</p>
     <section class="grid" id="links-grid">
       {{content}}
     </section>
   </main>
   <script>
+    const LINKS_ROUTE = "{{AppRoutes.Links}}";
     const grid = document.getElementById("links-grid");
 
     async function deleteLink(id, button) {
@@ -378,7 +380,7 @@ internal static class LinkVaultPageRenderer
       button.textContent = "Deleting...";
 
       try {
-        const response = await fetch(`/links?id=${encodeURIComponent(id)}`, {
+        const response = await fetch(`${LINKS_ROUTE}?id=${encodeURIComponent(id)}`, {
           method: "DELETE"
         });
 

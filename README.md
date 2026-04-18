@@ -1,6 +1,6 @@
 # Link Vault
 
-Local-first URL capture for Chrome. The extension sends links to a .NET 10 API running at `http://localhost:5678`.
+Local-first URL capture for Chrome. The extension talks to a .NET 10 API published from Docker at `http://localhost:5678`.
 
 ## Setup
 
@@ -8,37 +8,44 @@ Local-first URL capture for Chrome. The extension sends links to a .NET 10 API r
 2. Turn on **Developer mode**.
 3. Click **Load unpacked** and select `path-to\link-vault\extension`.
 4. Copy the extension ID shown on the `Link Vault` card.
-5. Start the API.
-
-Preferred: set the extension origin in `src/LinkVault.Api/appsettings.json` under `LinkVault:AllowedExtensionOrigins`.
-Fallback: set `LINK_VAULT_ALLOWED_EXTENSION_ORIGINS` as an environment variable.
+5. Create a `.env` file in the repo root with:
 
 ```powershell
-dotnet run --project .\src\LinkVault.Api\LinkVault.Api.csproj
+LINK_VAULT_ALLOWED_EXTENSION_ORIGINS=chrome-extension://<EXTENSION_ID>
 ```
 
-6. Check health:
+You can start from `.env.example`.
+
+6. Start the API with Docker Compose:
+
+```powershell
+docker compose up --build -d
+```
+
+7. Check health:
 
 ```powershell
 Invoke-WebRequest http://localhost:5678/health | Select-Object -ExpandProperty Content
 ```
 
-7. Use the extension popup:
+8. If your API uses another host or port, update `extension/config.js` and change `apiOrigin`, then reload the unpacked extension in `chrome://extensions`.
+
+9. Use the extension popup:
 - `Save`
 - `Save & Close`
 - `Save All Tabs` (saves sequentially and does not close tabs)
 - `View Links` (opens the links page, where you can also delete saved links)
 
-8. You can also right-click any hyperlink and choose `Save link to Vault` to save the target URL directly without opening it in a tab.
+10. You can also right-click any hyperlink and choose `Save link to Vault` to save the target URL directly without opening it in a tab.
 
 ## Notes
 
-- Default storage path: `%LOCALAPPDATA%\LinkVault\links.json`
+- Docker publishes the API only to `127.0.0.1:5678`, so it stays local to the machine running Chrome.
+- Persistent data is stored in the Docker volume mounted at `/data/links.json` inside the container.
 - Browser view: `http://localhost:5678/links`
 - Links are created with `POST /links`.
 - Opened pages can update `updatedAt` through `PATCH /links` by URL.
 - Saved links can be removed with `DELETE /links?id=<guid>`.
-- Preferred config key: `LinkVault:DataPath`
-- Fallback env var: `LINK_VAULT_DATA_PATH`
-- If the extension ID changes after reload/reinstall, update `LinkVault:AllowedExtensionOrigins` or `LINK_VAULT_ALLOWED_EXTENSION_ORIGINS`.
+- The API reads `LinkVault:DataPath` and `LinkVault:AllowedExtensionOrigins` from configuration, with environment variables as fallback.
+- If the extension ID changes after reload/reinstall, update `LINK_VAULT_ALLOWED_EXTENSION_ORIGINS` and restart the container.
 - If the ID is wrong, Chrome blocks the request with CORS.

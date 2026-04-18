@@ -21,6 +21,13 @@ public enum TouchResult
     StorageFailure
 }
 
+public enum DeleteResult
+{
+    Deleted,
+    Ignored,
+    StorageFailure
+}
+
 public sealed class LinkStore
 {
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
@@ -45,7 +52,7 @@ public sealed class LinkStore
         }
 
         startupLogger.LogError(
-            "Link store corruption detected at startup. POST /links and PATCH /links will fail until {DataPath} is repaired.",
+            "Link store corruption detected at startup. POST /links, PATCH /links, and DELETE /links will fail until {DataPath} is repaired.",
             _dataPath);
     }
 
@@ -137,6 +144,45 @@ public sealed class LinkStore
             }
 
             return TouchResult.Updated;
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    public async Task<DeleteResult> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await _writeLock.WaitAsync(cancellationToken);
+        try
+        {
+            await EnsureInitializedAsync(cancellationToken);
+            var readResult = await TryReadItemsAsync(cancellationToken);
+            if (!readResult.Success)
+            {
+                _logger.LogError("Failed to delete link '{Id}' because the link store at {DataPath} is corrupted or unreadable.", id, _dataPath);
+                return DeleteResult.StorageFailure;
+            }
+
+            var items = readResult.Items!;
+            var removedCount = items.RemoveAll(item => item.Id == id);
+            if (removedCount == 0)
+            {
+                return DeleteResult.Ignored;
+            }
+
+            try
+            {
+                await WriteAtomicallyAsync(items, cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Atomic write failed for link delete in store {DataPath}", _dataPath);
+                return DeleteResult.StorageFailure;
+            }
+
+            _logger.LogInformation("Deleted link: {Id}", id);
+            return DeleteResult.Deleted;
         }
         finally
         {

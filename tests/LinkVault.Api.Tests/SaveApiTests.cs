@@ -151,6 +151,35 @@ public sealed class SaveApiTests : IDisposable
     }
 
     [Fact]
+    public async Task DeleteLinks_RemovesItemWhenIdExists()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await _client.PostAsJsonAsync("/links", new SaveLinkRequest { Url = "https://example.com/delete-me" }, cancellationToken);
+        var item = Assert.Single(await ReadItemsAsync(cancellationToken));
+
+        var response = await _client.DeleteAsync($"/links?id={item.Id}", cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<DeleteLinkResponse>(cancellationToken);
+        Assert.NotNull(body);
+        Assert.Equal("deleted", body.Status);
+        Assert.Empty(await ReadItemsAsync(cancellationToken));
+    }
+
+    [Fact]
+    public async Task DeleteLinks_IgnoresUnknownId()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var response = await _client.DeleteAsync($"/links?id={Guid.NewGuid()}", cancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<DeleteLinkResponse>(cancellationToken);
+        Assert.NotNull(body);
+        Assert.Equal("ignored", body.Status);
+    }
+
+    [Fact]
     public async Task PostAndPatchLinks_WriteTimestampsWithIdenticalPrecision()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -179,7 +208,7 @@ public sealed class SaveApiTests : IDisposable
     }
 
     [Fact]
-    public async Task LinksPage_RendersSavedItems()
+    public async Task LinksPage_RendersSavedItemsAndDeleteButtons()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -193,6 +222,7 @@ public sealed class SaveApiTests : IDisposable
 
         var response = await _client.GetAsync("/links", cancellationToken);
         var html = await response.Content.ReadAsStringAsync(cancellationToken);
+        var item = Assert.Single(await ReadItemsAsync(cancellationToken));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
@@ -201,6 +231,8 @@ public sealed class SaveApiTests : IDisposable
         Assert.Contains("https://example.com/alpha", html);
         Assert.Contains("First link", html);
         Assert.Contains("one", html);
+        Assert.Contains("Delete", html);
+        Assert.Contains($"data-delete-id=\"{item.Id}\"", html);
     }
 
     [Fact]

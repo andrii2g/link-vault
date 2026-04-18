@@ -6,3 +6,5 @@ TestResults/
 .vs/
 .altbin/
 .env
+.publishtest
+.tmpbuild/

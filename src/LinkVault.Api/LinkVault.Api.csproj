@@ -8,7 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="templates\**\*">
+    <Content Include="Templates/links.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="Templates/link-item.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

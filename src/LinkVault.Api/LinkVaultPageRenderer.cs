@@ -5,11 +5,9 @@ namespace LinkVault.Api;
 
 internal static class LinkVaultPageRenderer
 {
-    private static readonly Lazy<string> PageTemplate = new(() =>
-        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "templates", "links.html")));
+    private static readonly Lazy<string> PageTemplate = new(() => ReadTemplate("links.html"));
 
-    private static readonly Lazy<string> ItemTemplate = new(() =>
-        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "templates", "link-item.html")));
+    private static readonly Lazy<string> ItemTemplate = new(() => ReadTemplate("link-item.html"));
 
     public static string Render(IReadOnlyList<LinkVault.Api.Models.UrlItem> items)
     {
@@ -80,5 +78,16 @@ internal static class LinkVaultPageRenderer
         }
         tags.Append("</ul>");
         return tags.ToString();
+    }
+
+    private static string ReadTemplate(string fileName)
+    {
+        var filePath = Path.Combine(AppContext.BaseDirectory, "Templates", fileName);
+        if (!File.Exists(filePath))
+        {
+            throw new FileNotFoundException($"Could not find template '{fileName}' in '{filePath}'.");
+        }
+
+        return File.ReadAllText(filePath);
     }
 }

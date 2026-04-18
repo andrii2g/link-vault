@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Link Vault</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5efe4;
+      --paper: #fffdf8;
+      --ink: #1f2228;
+      --accent: #b6532f;
+      --line: #decdb0;
+      --muted: #6e6658;
+      --danger: #9c2f1a;
+      --danger-bg: #fff2ed;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top, #fff8eb 0%, var(--bg) 70%);
+    }
+    main {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 28px 18px 56px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      line-height: 1;
+    }
+    .eyebrow {
+      margin: 0 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 0.75rem;
+      color: var(--accent);
+    }
+    .subtitle {
+      margin: 12px 0 26px;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px 18px;
+      box-shadow: 0 8px 24px rgba(70, 43, 20, 0.06);
+    }
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+    .meta-group {
+      min-width: 0;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+    }
+    .delete-button {
+      flex: 0 0 auto;
+      border: 1px solid rgba(156, 47, 26, 0.28);
+      background: var(--danger-bg);
+      color: var(--danger);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background-color 120ms ease, transform 120ms ease;
+    }
+    .delete-button:hover {
+      background: #ffe5dc;
+      transform: translateY(-1px);
+    }
+    .delete-button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+      transform: none;
+    }
+    h2 {
+      margin: 0 0 8px;
+      font-size: 1.25rem;
+      line-height: 1.2;
+    }
+    .url {
+      display: inline-block;
+      margin-bottom: 10px;
+      color: var(--accent);
+      text-decoration: none;
+      word-break: break-word;
+    }
+    .url:hover { text-decoration: underline; }
+    p {
+      margin: 0 0 12px;
+      line-height: 1.5;
+    }
+    .tags {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0;
+      margin: 0;
+    }
+    .tags li {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: #fff7e6;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .empty {
+      padding: 20px;
+      border: 1px dashed var(--line);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.6);
+    }
+    @media (max-width: 640px) {
+      .card-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .delete-button {
+        align-self: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">Link Vault</p>
+    <h1>Saved links</h1>
+    <p class="subtitle">Local view of the container-backed store at /data/links.json.</p>
+    <section class="grid" id="links-grid">
+      {{content}}
+    </section>
+  </main>
+  <script>
+    const LINKS_ROUTE = "{{linksRoute}}";
+    const grid = document.getElementById("links-grid");
+
+    async function deleteLink(id, button) {
+      button.disabled = true;
+      button.textContent = "Deleting...";
+
+      try {
+        const response = await fetch(`${LINKS_ROUTE}?id=${encodeURIComponent(id)}`, {
+          method: "DELETE"
+        });
+
+        if (!response.ok) {
+          throw new Error("Delete request failed.");
+        }
+
+        const result = await response.json();
+        if (result.status === "deleted") {
+          document.querySelector(`[data-link-id="${CSS.escape(id)}"]`)?.remove();
+          ensureEmptyState();
+          return;
+        }
+
+        button.disabled = false;
+        button.textContent = "Delete";
+      } catch {
+        button.disabled = false;
+        button.textContent = "Delete";
+        window.alert("Failed to delete link.");
+      }
+    }
+
+    function ensureEmptyState() {
+      if (grid.querySelector(".card")) {
+        return;
+      }
+
+      if (!grid.querySelector(".empty")) {
+        const empty = document.createElement("p");
+        empty.className = "empty";
+        empty.textContent = "No links saved yet.";
+        grid.appendChild(empty);
+      }
+    }
+
+    grid.addEventListener("click", event => {
+      const button = event.target.closest("[data-delete-id]");
+      if (!button) {
+        return;
+      }
+
+      const id = button.getAttribute("data-delete-id");
+      if (!id || !window.confirm("Delete this link from the vault?")) {
+        return;
+      }
+
+      deleteLink(id, button);
+    });
+  </script>
+</body>
+</html>
